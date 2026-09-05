@@ -6,7 +6,7 @@
 //  downloads quietly in the background for next time.
 // ===========================================================================
 
-const VERSION = "sc-v6";
+const VERSION = "sc-v7";
 const SHELL = [
   "./",
   "./index.html",

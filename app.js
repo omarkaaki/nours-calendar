@@ -659,7 +659,7 @@ async function togglePush(on) {
     if (!on) {
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await store.sb?.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        await store.sb?.remove("push_subscriptions", `endpoint=eq.${encodeURIComponent(sub.endpoint)}`);
         await sub.unsubscribe();
       }
       hint.textContent = "Off — turn on to get shift and event alerts.";
@@ -672,14 +672,13 @@ async function togglePush(on) {
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
     const raw = sub.toJSON();
-    const { error } = await store.sb.from("push_subscriptions").upsert({
+    await store.sb.upsert("push_subscriptions", {
       user_id: store.user.id,
       endpoint: raw.endpoint,
       p256dh: raw.keys.p256dh,
       auth: raw.keys.auth,
       user_agent: navigator.userAgent.slice(0, 200),
-    }, { onConflict: "endpoint" });
-    if (error) throw error;
+    }, "endpoint");
     hint.textContent = "On — reminders will buzz your phone.";
     toast("Notifications on");
   } catch (err) {

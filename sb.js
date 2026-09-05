@@ -92,18 +92,35 @@ export class Supa {
   _store(data) {
     const expires_at = data.expires_at
       ?? Math.floor(Date.now() / 1000) + (Number(data.expires_in) || 3600);
+    // A refresh response does not always carry the user object. Losing it would
+    // leave a perfectly valid session that boot can't identify, which shows the
+    // login screen to someone who never signed out — so keep what we already had.
+    const user = data.user?.id
+      ? { id: data.user.id, email: data.user.email }
+      : this.session?.user;
     this.session = {
       access_token: data.access_token,
-      refresh_token: data.refresh_token,
+      refresh_token: data.refresh_token ?? this.session?.refresh_token,
       expires_at,
-      user: { id: data.user?.id, email: data.user?.email },
+      user,
     };
+    this._persist();
+  }
+
+  _persist() {
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(this.session)); } catch {}
+    // localStorage inside a Home Screen web app is the primary store; the cookie
+    // is a second copy that survives some of the cases where iOS clears it.
+    try {
+      document.cookie = `${SESSION_KEY}=${encodeURIComponent(JSON.stringify(this.session))}` +
+        `; path=/; max-age=34560000; SameSite=Lax; Secure`;
+    } catch {}
   }
 
   _clear() {
     this.session = null;
     try { localStorage.removeItem(SESSION_KEY); } catch {}
+    try { document.cookie = `${SESSION_KEY}=; path=/; max-age=0; SameSite=Lax; Secure`; } catch {}
   }
 
   // ------------------------------------------------------------------ rest
@@ -172,11 +189,21 @@ export class Supa {
   }
 }
 
+const valid = (s) => (s?.access_token && s?.refresh_token && s?.user?.id ? s : null);
+
 function readSession() {
+  let s = null;
+  try { s = valid(JSON.parse(localStorage.getItem(SESSION_KEY) || "null")); } catch {}
+  if (s) return s;
+  // localStorage was cleared but the cookie survived — recover from it.
   try {
-    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-    return s?.access_token && s?.refresh_token ? s : null;
-  } catch { return null; }
+    const hit = document.cookie.split("; ").find((c) => c.startsWith(SESSION_KEY + "="));
+    if (hit) {
+      s = valid(JSON.parse(decodeURIComponent(hit.slice(SESSION_KEY.length + 1))));
+      if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    }
+  } catch {}
+  return s;
 }
 
 function authMessage(data, status) {

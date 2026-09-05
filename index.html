@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shift Calendar</title>
+<meta name="description" content="Private shift and appointment calendar">
+<meta name="theme-color" content="#f6f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#110f19" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Shifts">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<!-- Load the three modules in parallel instead of discovering them one by one. -->
+<link rel="modulepreload" href="./app.js">
+<link rel="modulepreload" href="./store.js">
+<link rel="modulepreload" href="./sb.js">
+<link rel="modulepreload" href="./config.js">
+
+<style>
+/* ===========================================================================
+   Shift Calendar — inlined so the first paint costs zero extra requests.
+   =========================================================================== */
+
+:root {
+  --bg:        #f6f5fa;
+  --surface:   #ffffff;
+  --surface-2: #efedf6;
+  --line:      #e1ddec;
+  --line-soft: #edeaf4;
+  --text:      #1b1730;
+  --muted:     #6a6486;
+  --faint:     #9a94b0;
+  --accent:    #7c3aed;
+  --accent-ink:#ffffff;
+  --accent-bg: #f0e9fe;
+  --accent-sh: rgba(124,58,237,.38);
+  --danger:    #dc2626;
+  --danger-bg: #fdeaea;
+  --today:     #f59e0b;
+  --warn-bg:   #fff4e0;
+  --warn-ink:  #7a4b06;
+  --shadow-sm: 0 1px 2px rgba(27,23,48,.06), 0 1px 3px rgba(27,23,48,.05);
+  --shadow-lg: 0 -8px 40px rgba(27,23,48,.18);
+  --r:  12px;
+  --r-lg: 18px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        #110f19;
+    --surface:   #1a1726;
+    --surface-2: #241f33;
+    --line:      #342e48;
+    --line-soft: #27223a;
+    --text:      #eae7f6;
+    --muted:     #a29bbb;
+    --faint:     #766f90;
+    --accent:    #a78bfa;
+    --accent-ink:#1e1035;
+    --accent-bg: #2b2150;
+    --accent-sh: rgba(167,139,250,.3);
+    --danger:    #f87171;
+    --danger-bg: #3a1c1c;
+    --today:     #fbbf24;
+    --warn-bg:   #3a2c10;
+    --warn-ink:  #f5c877;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-lg: 0 -8px 40px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#110f19; --surface:#1a1726; --surface-2:#241f33; --line:#342e48; --line-soft:#27223a;
+  --text:#eae7f6; --muted:#a29bbb; --faint:#766f90; --accent:#a78bfa; --accent-ink:#1e1035;
+  --accent-bg:#2b2150; --accent-sh:rgba(167,139,250,.3); --danger:#f87171; --danger-bg:#3a1c1c;
+  --today:#fbbf24; --warn-bg:#3a2c10; --warn-ink:#f5c877;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-lg:0 -8px 40px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+body { padding-top: var(--safe-t); }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+[hidden] { display: none !important; }
+.muted { color: var(--muted); }
+.tiny { font-size: 12.5px; }
+
+/* ---------- boot ---------- */
+.boot { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 90; }
+.spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- login ---------- */
+.login { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.login-card {
+  width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 28px 24px 24px; box-shadow: var(--shadow-sm);
+}
+.login-card img { width: 56px; height: 56px; border-radius: 14px; display: block; }
+.login-card h1 { margin: 16px 0 4px; font-size: 21px; letter-spacing: -.02em; }
+.login-card form { margin-top: 20px; display: grid; gap: 14px; }
+
+label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+input, select, textarea {
+  width: 100%; padding: 11px 12px; border-radius: 10px; font-weight: 400;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  font-size: 16px; /* 16px stops iOS zooming the page when a field is focused */
+  -webkit-appearance: none; appearance: none;
+}
+textarea { min-height: 78px; resize: vertical; line-height: 1.5; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+input[type="checkbox"] { width: auto; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 16px; border-radius: 10px; font-size: 15px; font-weight: 600;
+  background: var(--surface-2); color: var(--text); border: 1px solid transparent;
+  transition: transform .06s ease, opacity .15s ease; text-decoration: none;
+}
+.btn:active { transform: scale(.975); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost   { background: transparent; border-color: var(--line); }
+.btn.danger  { background: var(--danger-bg); color: var(--danger); }
+.btn.block   { width: 100%; }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+.error { color: var(--danger); font-size: 13.5px; margin: 2px 0 0; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 2px;
+  padding: 8px 8px 6px; background: var(--bg);
+  border-bottom: 1px solid var(--line-soft);
+}
+.month-title { flex: 1; font-size: 19px; font-weight: 700; letter-spacing: -.02em; padding-left: 6px; text-align: left; }
+.month-title small { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.icon-btn { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--text); flex: none; }
+.icon-btn:active { background: var(--surface-2); }
+.icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pill { padding: 6px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--surface-2); color: var(--text); flex: none; }
+
+.segmented { display: flex; gap: 4px; padding: 8px 12px 4px; }
+.segmented button {
+  flex: 1; padding: 7px; border-radius: 9px; font-size: 13.5px; font-weight: 600;
+  color: var(--muted); background: var(--surface-2);
+}
+.segmented button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.banner {
+  margin: 6px 12px 0; padding: 8px 12px; border-radius: 10px; font-size: 13px;
+  background: var(--accent-bg); color: var(--text); display: flex; gap: 8px; align-items: center;
+}
+.banner.warn { background: var(--warn-bg); color: var(--warn-ink); }
+
+/* ---------- month grid ---------- */
+.weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  padding: 8px 8px 4px; font-size: 11px; font-weight: 700; color: var(--faint);
+  text-align: center; letter-spacing: .04em; text-transform: uppercase;
+}
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 0 8px; }
+.cell {
+  position: relative; min-height: 64px; border-radius: 10px; padding: 4px 3px 3px;
+  background: var(--surface); border: 1px solid var(--line-soft);
+  display: flex; flex-direction: column; align-items: stretch; gap: 3px; text-align: center;
+  transition: transform .06s ease;
+}
+.cell:active { transform: scale(.96); }
+.cell.out { background: transparent; border-color: transparent; opacity: .38; }
+.cell .dnum { font-size: 13px; font-weight: 600; line-height: 1.15; color: var(--text); height: 21px; }
+.cell.today .dnum { color: #241000; background: var(--today); width: 21px; border-radius: 50%; margin: 0 auto; font-size: 12px; line-height: 21px; }
+.cell.selected { outline: 2px solid var(--accent); }
+.chip {
+  font-size: 10px; font-weight: 700; line-height: 1.6; border-radius: 5px;
+  padding: 0 2px; color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.dots { display: flex; gap: 2.5px; justify-content: center; margin-top: auto; padding-bottom: 1px; min-height: 6px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+/* ---------- summary ---------- */
+.summary { margin: 16px 12px 0; }
+.summary h3 { margin: 0 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--r); padding: 11px 13px; }
+.stat b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+.stat span { font-size: 12px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.legend .tag {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: 999px; padding: 4px 10px 4px 7px;
+}
+.legend .swatch { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+
+/* ---------- agenda ---------- */
+.agenda { padding: 8px 12px 0; }
+.agenda-day { margin-bottom: 14px; }
+.agenda-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; padding-left: 2px; }
+.agenda-head b { font-size: 15px; letter-spacing: -.01em; }
+.agenda-head.is-today b { color: var(--today); }
+.agenda-head span { font-size: 12.5px; color: var(--muted); }
+.row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--r);
+  padding: 10px 12px; margin-bottom: 6px; box-shadow: var(--shadow-sm);
+}
+.row:active { background: var(--surface-2); }
+.row .bar { width: 4px; align-self: stretch; border-radius: 3px; flex: none; min-height: 32px; }
+.row .body { flex: 1; min-width: 0; }
+.row .body b { display: block; font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; }
+.row .body span { display: block; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .when { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; flex: none; }
+.row .when b { display: block; font-size: 13px; color: var(--text); font-weight: 600; }
+
+.empty { text-align: center; color: var(--faint); padding: 34px 20px; font-size: 14px; }
+.pad-b { height: calc(96px + var(--safe-b)); }
+
+/* ---------- FAB ---------- */
+.fab {
+  position: fixed; right: 16px; bottom: calc(18px + var(--safe-b)); z-index: 25;
+  width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center; box-shadow: 0 6px 20px var(--accent-sh);
+  transition: transform .06s ease;
+}
+.fab:active { transform: scale(.93); }
+.fab svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 2.4; fill: none; stroke-linecap: round; }
+
+/* ---------- sheets ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(17,15,25,.5); z-index: 40; animation: fade .18s ease; }
+@keyframes fade { from { opacity: 0; } }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  max-height: 92dvh; display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg); animation: rise .26s cubic-bezier(.22,1,.36,1);
+}
+@keyframes rise { from { transform: translateY(100%); } }
+@media (min-width: 640px) {
+  .sheet { left: 50%; right: auto; width: 540px; transform: translateX(-50%); }
+  @keyframes rise { from { transform: translate(-50%, 100%); } }
+}
+.grabber { width: 36px; height: 4px; border-radius: 3px; background: var(--line); margin: 8px auto 0; flex: none; }
+.sheet-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; flex: none; border-bottom: 1px solid var(--line-soft); }
+.sheet-head h2 { flex: 1; margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.sheet-head h2 small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 16px; }
+.sheet-foot { flex: none; padding: 12px 16px calc(12px + var(--safe-b)); border-top: 1px solid var(--line-soft); display: flex; gap: 8px; }
+.sheet-foot .btn { flex: 1; }
+
+.field-grid { display: grid; gap: 13px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.section-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); margin: 20px 0 8px; }
+.section-label.first { margin-top: 0; }
+
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; }
+.switch-row .lbl { font-size: 14.5px; font-weight: 500; }
+.switch-row .lbl small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+.switch { position: relative; width: 50px; height: 30px; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; z-index: 2; }
+.switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background .18s; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .18s; }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(20px); }
+
+.type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.type-btn {
+  border-radius: var(--r); padding: 10px 6px; border: 2px solid var(--line);
+  background: var(--surface); display: grid; gap: 3px; justify-items: center;
+  font-size: 13px; font-weight: 650; letter-spacing: -.01em; color: var(--text);
+}
+.type-btn .sw { width: 100%; height: 5px; border-radius: 3px; }
+.type-btn small { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.type-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); }
+
+.type-editor { display: grid; grid-template-columns: 34px minmax(0,1fr) 78px 78px 30px; gap: 6px; align-items: center; margin-bottom: 7px; }
+.type-editor input[type="color"] { padding: 0; height: 34px; width: 34px; border-radius: 8px; border: 1px solid var(--line); background: none; }
+.type-editor input { padding: 7px 8px; font-size: 13.5px; }
+.type-editor .del { color: var(--danger); font-size: 20px; line-height: 1; }
+
+.list-item { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line-soft); }
+.list-item:last-child { border-bottom: 0; }
+
+.copyfield { display: flex; gap: 6px; }
+.copyfield input { font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.copyfield .btn { flex: none; }
+
+.steps { margin: 8px 0 0; padding-left: 20px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+.steps b { color: var(--text); }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(88px + var(--safe-b)); transform: translateX(-50%);
+  z-index: 70; background: #1b1730; color: #fff; padding: 10px 16px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,.35);
+  animation: toast .2s ease; max-width: 88vw; text-align: center;
+}
+@keyframes toast { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================ boot ============================ -->
+<div id="boot" class="boot"><div class="spinner"></div></div>
+
+<!-- ============================ login =========================== -->
+<section id="login" class="login" hidden>
+  <div class="login-card">
+    <img src="icons/icon-192.png" alt="" width="56" height="56">
+    <h1>Shift Calendar</h1>
+    <p class="muted tiny" id="login-sub">Sign in to open your calendar.</p>
+    <form id="login-form" autocomplete="on">
+      <label>Email
+        <input type="email" id="email" autocomplete="username" inputmode="email"
+               autocapitalize="none" autocorrect="off" required>
+      </label>
+      <label>Password
+        <input type="password" id="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn primary block" type="submit" id="login-btn">Sign in</button>
+      <p class="error" id="login-error" hidden></p>
+    </form>
+  </div>
+</section>
+
+<!-- ============================= app ============================ -->
+<main id="app" hidden>
+  <header class="topbar">
+    <button class="icon-btn" id="prev" aria-label="Previous month">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="month-title" id="month-title" aria-label="Jump to this month">
+      <span id="mt-main">—</span><small id="mt-sub"></small>
+    </button>
+    <button class="pill" id="today-btn">Today</button>
+    <button class="icon-btn" id="next" aria-label="Next month">
+      <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <button class="icon-btn" id="settings-btn" aria-label="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="segmented" role="tablist">
+    <button id="tab-month"  role="tab" aria-selected="true">Month</button>
+    <button id="tab-agenda" role="tab" aria-selected="false">Agenda</button>
+  </div>
+
+  <div id="banner" class="banner" hidden><span id="banner-text"></span></div>
+
+  <section id="month-view">
+    <div class="weekdays" id="weekdays"></div>
+    <div class="grid" id="grid"></div>
+    <div class="summary" id="summary"></div>
+    <div class="pad-b"></div>
+  </section>
+
+  <section id="agenda-view" hidden>
+    <div class="agenda" id="agenda"></div>
+    <div class="pad-b"></div>
+  </section>
+
+  <button class="fab" id="fab" aria-label="Add event">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</main>
+
+<!-- ============================ sheets ========================== -->
+<div id="scrim" class="scrim" hidden></div>
+
+<section id="day-sheet" class="sheet" hidden aria-modal="true" role="dialog">
+  <div class="grabber"></div>
+  <div class="sheet-head">
+    <h2 id="day-title">Day<small id="day-sub"></small></h2>
+    <button class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body" id="day-body"></div>
+  <div class="sheet-foot">
+    <button class="btn ghost" id="day-add-event">Add event</button>
+    <button class="btn primary" id="day-repeat">Repeat shift…</button>
+  </div>
+</section>
+
+<section id="event-sheet" class="sheet" hidden aria-modal="true" role="dialog">
+  <div class="grabber"></div>
+  <div class="sheet-head">
+    <h2 id="event-title">Event</h2>
+    <button class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="field-grid">
+      <label>Title <input type="text" id="ev-title" placeholder="Dentist, meeting, birthday…" enterkeyhint="done"></label>
+      <label>Date <input type="date" id="ev-date"></label>
+      <div class="switch-row" style="padding:0">
+        <div class="lbl">All day</div>
+        <span class="switch"><input type="checkbox" id="ev-allday"><i></i></span>
+      </div>
+      <div class="two" id="ev-times">
+        <label>Starts <input type="time" id="ev-start"></label>
+        <label>Ends <input type="time" id="ev-end"></label>
+      </div>
+      <label>Remind me
+        <select id="ev-remind">
+          <option value="">No reminder</option>
+          <option value="0">At the time</option>
+          <option value="10">10 minutes before</option>
+          <option value="30">30 minutes before</option>
+          <option value="60">1 hour before</option>
+          <option value="120">2 hours before</option>
+          <option value="720">12 hours before</option>
+          <option value="1440">1 day before</option>
+          <option value="2880">2 days before</option>
+        </select>
+      </label>
+      <label>Location <input type="text" id="ev-location" placeholder="Optional"></label>
+      <label>Notes / details <textarea id="ev-notes" placeholder="Anything you want to remember about this day"></textarea></label>
+      <div>
+        <div class="section-label first">Colour</div>
+        <div class="type-grid" id="ev-colors"></div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn danger" id="ev-delete" hidden>Delete</button>
+    <button class="btn primary" id="ev-save">Save</button>
+  </div>
+</section>
+
+<section id="pattern-sheet" class="sheet" hidden aria-modal="true" role="dialog">
+  <div class="grabber"></div>
+  <div class="sheet-head">
+    <h2>Repeat shift<small>Fill a stretch of days in one go</small></h2>
+    <button class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="section-label first">Shift to apply</div>
+    <div class="type-grid" id="pat-types"></div>
+
+    <div class="section-label">Pattern</div>
+    <select id="pat-mode">
+      <option value="weekly">Certain weekdays</option>
+      <option value="cycle">Rotation — X days on, Y days off</option>
+      <option value="every">Every day</option>
+    </select>
+
+    <div id="pat-weekly" style="margin-top:12px">
+      <div class="type-grid" id="pat-days" style="grid-template-columns:repeat(7,1fr);gap:5px"></div>
+    </div>
+    <div id="pat-cycle" class="two" style="margin-top:12px" hidden>
+      <label>Days on <input type="number" id="pat-on" min="1" max="30" value="4"></label>
+      <label>Days off <input type="number" id="pat-off" min="0" max="30" value="4"></label>
+    </div>
+
+    <div class="section-label">Range</div>
+    <div class="two">
+      <label>From <input type="date" id="pat-from"></label>
+      <label>Until <input type="date" id="pat-to"></label>
+    </div>
+    <p class="tiny muted" id="pat-preview" style="margin-top:10px"></p>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn ghost" data-close>Cancel</button>
+    <button class="btn primary" id="pat-apply">Apply</button>
+  </div>
+</section>
+
+<section id="settings-sheet" class="sheet" hidden aria-modal="true" role="dialog">
+  <div class="grabber"></div>
+  <div class="sheet-head">
+    <h2>Settings<small id="set-sub"></small></h2>
+    <button class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+
+    <div class="section-label first">iPhone reminders</div>
+    <div class="switch-row" style="padding-top:0">
+      <div class="lbl">Push notifications
+        <small id="push-hint">Add to Home Screen first, then turn this on.</small>
+      </div>
+      <span class="switch"><input type="checkbox" id="push-toggle"><i></i></span>
+    </div>
+    <div id="ics-block" hidden>
+      <div class="switch-row" style="padding-bottom:4px">
+        <div class="lbl">Add to the iPhone Calendar app
+          <small>Native alerts, even with this app closed. Set up once.</small>
+        </div>
+      </div>
+      <a class="btn primary block" id="ics-subscribe" href="#" style="margin-bottom:8px">Add it to my iPhone Calendar</a>
+      <div class="copyfield">
+        <input type="text" id="ics-url" readonly>
+        <button class="btn ghost" id="ics-copy">Copy</button>
+      </div>
+      <p class="tiny muted" style="margin:10px 0 0">If the button above doesn't do anything, do it by hand:</p>
+      <ol class="steps">
+        <li>Copy the link above.</li>
+        <li>iPhone <b>Settings → Apps → Calendar → Calendar Accounts</b></li>
+        <li><b>Add Account → Other → Add Subscribed Calendar</b>, paste, Next, Save.</li>
+        <li>Open it again and turn <b>Remove Alarms</b> OFF so reminders come through.</li>
+      </ol>
+      <p class="tiny muted" style="margin-top:8px">Keep this link private — anyone who has it can read your calendar.</p>
+    </div>
+
+    <div class="section-label">Shift reminder</div>
+    <label>Alert me before a shift starts
+      <select id="shift-alarm">
+        <option value="">Never</option>
+        <option value="30">30 minutes before</option>
+        <option value="60">1 hour before</option>
+        <option value="90">1.5 hours before</option>
+        <option value="120">2 hours before</option>
+        <option value="180">3 hours before</option>
+        <option value="720">12 hours before</option>
+      </select>
+    </label>
+
+    <div class="section-label">My shift types</div>
+    <div id="type-list"></div>
+    <button class="btn ghost block" id="add-type" style="margin-top:8px">Add a shift type</button>
+
+    <div class="section-label">Preferences</div>
+    <label>Week starts on
+      <select id="week-start"><option value="1">Monday</option><option value="0">Sunday</option></select>
+    </label>
+    <label style="margin-top:12px">Appearance
+      <select id="theme"><option value="auto">Match my phone</option><option value="light">Always light</option><option value="dark">Always dark</option></select>
+    </label>
+    <label style="margin-top:12px">Timezone <input type="text" id="tz" placeholder="Asia/Beirut"></label>
+
+    <div class="section-label">Account</div>
+    <div class="list-item"><div style="flex:1"><b id="acct-email" style="font-size:14px"></b><div class="tiny muted" id="acct-mode"></div></div></div>
+    <button class="btn ghost block" id="export-btn" style="margin-top:8px">Download a backup copy</button>
+    <button class="btn danger block" id="signout" style="margin-top:8px">Sign out</button>
+    <p class="tiny muted" style="margin-top:14px;text-align:center" id="version"></p>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn primary" id="set-save">Done</button>
+  </div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

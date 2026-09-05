@@ -10,7 +10,7 @@ export const SUPABASE_ANON_KEY = "sb_publishable_hIaqfxP3EwVYbEy1dMQNZQ_gFUYcGgH
 
 // Optional — only needed for Web Push (Tier 2 in the README).
 // Leave empty and the app simply hides the push toggle.
-export const VAPID_PUBLIC_KEY = "";
+export const VAPID_PUBLIC_KEY = "BM3pLxsbWluXaiUsJzavuKAcK26xUuGTq0rgadNppe3IeElpciV3PS1S7i_hV52NfBIZ1t3MeU0Fqly-oDekA3I";
 
 // Her timezone. Used for reminders and the iPhone calendar feed.
 export const DEFAULT_TIMEZONE = "Asia/Beirut";

@@ -137,13 +137,21 @@ Deno.serve(async (req) => {
     "REFRESH-INTERVAL;VALUE=DURATION:PT15M",
   ];
 
-  const alarmBlock = (mins: number, text: string) => [
-    "BEGIN:VALARM",
-    "ACTION:DISPLAY",
-    `DESCRIPTION:${esc(text)}`,
-    `TRIGGER:${mins === 0 ? "PT0S" : `-PT${mins >= 60 && mins % 60 === 0 ? `${mins / 60}H` : `${mins}M`}`}`,
-    "END:VALARM",
-  ];
+  // A relative TRIGGER on an all-day event counts back from midnight, so
+  // "1 day before" would wake her at 00:00. For those, anchor the alarm to
+  // 09:00 local on the day itself and emit an absolute trigger instead — which
+  // is also what the push sender does, so the two agree.
+  const ALLDAY_ANCHOR = "09:00";
+  const alarmBlock = (mins: number, text: string, allDayOn?: string) => {
+    let trigger: string;
+    if (allDayOn) {
+      const at = new Date(zonedToUtc(allDayOn, ALLDAY_ANCHOR, tz).getTime() - mins * 60_000);
+      trigger = `TRIGGER;VALUE=DATE-TIME:${utcStamp(at)}`;
+    } else {
+      trigger = `TRIGGER:${mins === 0 ? "PT0S" : `-PT${mins >= 60 && mins % 60 === 0 ? `${mins / 60}H` : `${mins}M`}`}`;
+    }
+    return ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(text)}`, trigger, "END:VALARM"];
+  };
 
   // ---- shifts ----
   for (const s of shifts) {
@@ -193,7 +201,8 @@ Deno.serve(async (req) => {
     L.push(`SUMMARY:${esc(e.title)}`);
     if (e.location) L.push(`LOCATION:${esc(e.location)}`);
     if (e.notes) L.push(`DESCRIPTION:${esc(e.notes)}`);
-    if (e.remind_minutes != null) L.push(...alarmBlock(e.remind_minutes, e.title));
+    const untimed = e.all_day || !e.start_time;
+    if (e.remind_minutes != null) L.push(...alarmBlock(e.remind_minutes, e.title, untimed ? e.date : undefined));
     L.push("TRANSP:OPAQUE", "END:VEVENT");
   }
 

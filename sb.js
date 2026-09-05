@@ -113,7 +113,10 @@ export class Supa {
       ...init,
       headers: {
         apikey: this.key,
-        Authorization: `Bearer ${token || this.key}`,
+        // Only send a Bearer when we hold a real user JWT. Falling back to the
+        // API key here would break the newer sb_publishable_* keys, which are
+        // not JWTs and make PostgREST reject the request outright.
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "Content-Type": "application/json",
         ...(init.headers || {}),
       },

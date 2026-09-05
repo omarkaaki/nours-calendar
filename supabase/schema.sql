@@ -11,9 +11,18 @@
 -- ===========================================================================
 
 -- ------------------------------------------------------------------ tables
+-- The six starting shift types live here as the column default, so a profile
+-- created by the trigger is already usable and the .ics feed can name shifts
+-- properly. She can rename, recolour and re-time them in the app afterwards.
 create table if not exists public.profiles (
   user_id             uuid primary key references auth.users(id) on delete cascade,
-  shift_types         jsonb       not null default '[]'::jsonb,
+  shift_types         jsonb       not null default
+    '[{"id":"morning","name":"Morning","color":"#f59e0b","start":"07:00","end":"15:00"},
+      {"id":"evening","name":"Evening","color":"#8b5cf6","start":"15:00","end":"23:00"},
+      {"id":"night",  "name":"Night",  "color":"#4c1d95","start":"23:00","end":"07:00"},
+      {"id":"oncall", "name":"On-call","color":"#ec4899","start":"","end":""},
+      {"id":"off",    "name":"Off",    "color":"#94a3b8","start":"","end":""},
+      {"id":"leave",  "name":"Leave",  "color":"#10b981","start":"","end":""}]'::jsonb,
   week_start          smallint    not null default 1,
   theme               text        not null default 'auto',
   timezone            text        not null default 'Asia/Beirut',
@@ -121,20 +130,15 @@ insert into public.profiles (user_id)
 select id from auth.users
 on conflict (user_id) do nothing;
 
--- ---------------------------------------------------- live sync across devices
--- Lets the phone and the laptop update each other instantly.
-do $$
-begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'shifts'
-  ) then
-    alter publication supabase_realtime add table public.shifts;
-  end if;
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'events'
-  ) then
-    alter publication supabase_realtime add table public.events;
-  end if;
-end $$;
+-- --------------------------------- repair anything left over from an earlier run
+-- A profile with no shift types would make the .ics feed label every shift with
+-- its raw id ("night") instead of its name ("Night").
+update public.profiles
+   set shift_types =
+    '[{"id":"morning","name":"Morning","color":"#f59e0b","start":"07:00","end":"15:00"},
+      {"id":"evening","name":"Evening","color":"#8b5cf6","start":"15:00","end":"23:00"},
+      {"id":"night",  "name":"Night",  "color":"#4c1d95","start":"23:00","end":"07:00"},
+      {"id":"oncall", "name":"On-call","color":"#ec4899","start":"","end":""},
+      {"id":"off",    "name":"Off",    "color":"#94a3b8","start":"","end":""},
+      {"id":"leave",  "name":"Leave",  "color":"#10b981","start":"","end":""}]'::jsonb
+ where shift_types is null or jsonb_array_length(shift_types) = 0;

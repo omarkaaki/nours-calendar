@@ -868,9 +868,18 @@ function main() {
 
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 800));
   idle(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch((e) => console.warn("sw:", e));
-    }
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch((e) => console.warn("sw:", e));
+
+    // Pages are served cache-first, so a freshly deployed version would
+    // otherwise only appear on the load *after* next. When a new worker takes
+    // over, quietly reload — but never mid-edit, and never more than once.
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloaded) return;
+      reloaded = true;
+      if (!stack.length) location.reload();
+    });
   });
 }
 

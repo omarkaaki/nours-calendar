@@ -178,14 +178,19 @@ class DataStore extends EventTarget {
 
     const p = profiles?.[0];
     if (p) {
+      const missingTypes = !Array.isArray(p.shift_types) || !p.shift_types.length;
       this.profile = {
         ...DEFAULT_PROFILE(),
         ...p,
-        shift_types: Array.isArray(p.shift_types) && p.shift_types.length
-          ? p.shift_types : DEFAULT_SHIFT_TYPES.map((t) => ({ ...t })),
+        shift_types: missingTypes ? DEFAULT_SHIFT_TYPES.map((t) => ({ ...t })) : p.shift_types,
       };
+      // The row exists but has no shift types (an older signup, or the trigger
+      // created it bare). Write the defaults back, or the .ics feed would label
+      // every shift with its raw id instead of "Morning" / "Night".
+      if (missingTypes) this.saveProfile({ shift_types: this.profile.shift_types });
     } else {
-      const row = { ...DEFAULT_PROFILE(), user_id: this.user.id };
+      // ics_token is NOT NULL with a generated default, so it must not be sent.
+      const { ics_token, ...row } = { ...DEFAULT_PROFILE(), user_id: this.user.id };
       const created = await this.sb.insert("profiles", row).catch(() => null);
       if (created?.[0]) this.profile = { ...DEFAULT_PROFILE(), ...created[0] };
     }

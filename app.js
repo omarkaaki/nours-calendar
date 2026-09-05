@@ -304,20 +304,33 @@ function renderDayBody() {
     const t = store.typeById(active);
     body.appendChild(el("div", "section-label", "Times for this day"));
     const two = el("div", "two");
-    const mk = (label, value, ph, onchange) => {
+    // Postgres hands times back as HH:MM:SS; the input wants HH:MM.
+    const hhmm = (v) => String(v || "").slice(0, 5);
+
+    const mk = (label, value, onchange) => {
       const l = el("label", null, label);
       const i = document.createElement("input");
-      i.type = "time"; i.value = value || ""; i.placeholder = ph;
+      i.type = "time"; i.value = hhmm(value);
       i.addEventListener("change", onchange);
       l.appendChild(i);
       return l;
     };
-    two.appendChild(mk("Starts", shift.start_time || t.start, "", (e) => { store.setShift(key, { start_time: e.target.value }); refresh(); }));
-    two.appendChild(mk("Ends", shift.end_time || t.end, "", (e) => { store.setShift(key, { end_time: e.target.value }); refresh(); }));
-    body.appendChild(two);
 
-    const h = shiftHours(shift, t);
-    if (h > 0) body.appendChild(Object.assign(el("p", "tiny muted", `${h.toFixed(h % 1 ? 1 : 0)} hours`), { style: "margin:6px 0 0" }));
+    // Kept as a live element: editing a time has to move this number in front
+    // of her, not wait until the sheet is reopened.
+    const hoursLine = el("p", "tiny muted");
+    hoursLine.style.margin = "6px 0 0";
+    const paintHours = () => {
+      const h = shiftHours(store.getShift(key), t);
+      hoursLine.textContent = h > 0 ? `${h.toFixed(h % 1 ? 1 : 0)} hours` : "";
+    };
+    const onTime = (field) => (e) => { store.setShift(key, { [field]: e.target.value }); paintHours(); refresh(); };
+
+    two.appendChild(mk("Starts", shift.start_time || t.start, onTime("start_time")));
+    two.appendChild(mk("Ends",   shift.end_time   || t.end,   onTime("end_time")));
+    body.appendChild(two);
+    paintHours();
+    body.appendChild(hoursLine);
 
     const lu = el("label", null, "Ward / unit");
     const iu = document.createElement("input");
@@ -359,8 +372,8 @@ function openEvent(ev) {
   $("ev-title").value = ev?.title || "";
   $("ev-date").value = ev?.date || state.selected;
   $("ev-allday").checked = !!ev?.all_day;
-  $("ev-start").value = ev?.start_time || "09:00";
-  $("ev-end").value = ev?.end_time || "";
+  $("ev-start").value = String(ev?.start_time || "09:00").slice(0, 5);
+  $("ev-end").value = String(ev?.end_time || "").slice(0, 5);
   $("ev-remind").value = ev?.remind_minutes == null ? "" : String(ev.remind_minutes);
   $("ev-location").value = ev?.location || "";
   $("ev-notes").value = ev?.notes || "";

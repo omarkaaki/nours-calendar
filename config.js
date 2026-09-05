@@ -5,8 +5,8 @@
 //  who is logged in, because Row Level Security is enforced by the database.
 // ---------------------------------------------------------------------------
 
-export const SUPABASE_URL = "";       // e.g. "https://abcdefghijklm.supabase.co"
-export const SUPABASE_ANON_KEY = "";  // the long "anon / public" key
+export const SUPABASE_URL = "https://satxmwaythodwkntfowg.supabase.co";
+export const SUPABASE_ANON_KEY = "sb_publishable_hIaqfxP3EwVYbEy1dMQNZQ_gFUYcGgH";
 
 // Optional — only needed for Web Push (Tier 2 in the README).
 // Leave empty and the app simply hides the push toggle.

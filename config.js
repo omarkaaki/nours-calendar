@@ -16,6 +16,6 @@ export const VAPID_PUBLIC_KEY = "";
 export const DEFAULT_TIMEZONE = "Asia/Beirut";
 
 // Cosmetic
-export const APP_NAME = "Shift Calendar";
+export const APP_NAME = "Nour’s Calendar";
 
 export const CLOUD_ENABLED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);

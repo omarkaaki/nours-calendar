@@ -1,4 +1,4 @@
-# Shift Calendar
+# Nour’s Calendar
 
 A private, installable calendar for one person — built for a nurse who needs to
 track shifts, appointments and notes, and get reminded on her iPhone.

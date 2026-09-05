@@ -67,7 +67,7 @@ self.addEventListener("push", (e) => {
   let payload = {};
   try { payload = e.data ? e.data.json() : {}; } catch { payload = { body: e.data ? e.data.text() : "" }; }
 
-  e.waitUntil(self.registration.showNotification(payload.title || "Shift Calendar", {
+  e.waitUntil(self.registration.showNotification(payload.title || "Nour’s Calendar", {
     body: payload.body || "",
     icon: "./icons/icon-192.png",
     badge: "./icons/icon-192.png",

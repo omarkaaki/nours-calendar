@@ -1,7 +1,7 @@
 {
-  "name": "Shift Calendar",
-  "short_name": "Shifts",
-  "description": "Private shift and appointment calendar",
+  "name": "Nour’s Calendar",
+  "short_name": "Nour",
+  "description": "Nour’s Calendar — private shift and appointment calendar",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

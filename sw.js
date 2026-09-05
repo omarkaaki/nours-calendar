@@ -6,7 +6,7 @@
 //  downloads quietly in the background for next time.
 // ===========================================================================
 
-const VERSION = "sc-v4";
+const VERSION = "sc-v5";
 const SHELL = [
   "./",
   "./index.html",
@@ -47,8 +47,13 @@ self.addEventListener("fetch", (e) => {
       const cached = await cache.match(req, { ignoreSearch: false });
 
       const network = fetch(req)
-        .then((res) => {
-          if (res && res.ok && res.type === "basic") cache.put(req, res.clone());
+        .then(async (res) => {
+          if (!res || !res.ok || res.type !== "basic") return res;
+          // Did this file actually change since the copy we just served?
+          const before = cached?.headers.get("ETag") || cached?.headers.get("Last-Modified");
+          const after = res.headers.get("ETag") || res.headers.get("Last-Modified");
+          await cache.put(req, res.clone());
+          if (cached && before && after && before !== after) announceUpdate();
           return res;
         })
         .catch(() => null);
@@ -61,6 +66,18 @@ self.addEventListener("fetch", (e) => {
     })
   );
 });
+
+// Serving from cache means a deployment would otherwise only appear on the load
+// *after* next. When a revalidation turns up genuinely new bytes, tell the page
+// so it can refresh itself at a moment that won't interrupt her.
+let announceTimer = null;
+function announceUpdate() {
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(async () => {
+    const clients = await self.clients.matchAll({ type: "window" });
+    for (const c of clients) c.postMessage({ type: "sc-updated" });
+  }, 400);
+}
 
 // ------------------------------------------------------------------- push ---
 self.addEventListener("push", (e) => {

@@ -872,13 +872,18 @@ function main() {
     navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch((e) => console.warn("sw:", e));
 
     // Pages are served cache-first, so a freshly deployed version would
-    // otherwise only appear on the load *after* next. When a new worker takes
-    // over, quietly reload — but never mid-edit, and never more than once.
+    // otherwise only appear on the load *after* next. Refresh when the worker
+    // says the files genuinely changed — but never mid-edit, and only once.
     let reloaded = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const refresh = () => {
       if (reloaded) return;
+      if (stack.length) return;          // a sheet is open; she's in the middle of something
       reloaded = true;
-      if (!stack.length) location.reload();
+      location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", refresh);
+    navigator.serviceWorker.addEventListener("message", (e) => {
+      if (e.data?.type === "sc-updated") refresh();
     });
   });
 }

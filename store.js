@@ -248,13 +248,17 @@ class DataStore extends EventTarget {
     const rows = [];
     for (const date of dates) {
       const existing = this.shifts.get(date);
+      // A per-day time override only means something for the type it was set
+      // on. Painting a different shift over the day must drop it, or a "Night"
+      // could silently inherit a morning's 08:00-20:00 and skew the hours.
+      const sameType = existing?.type_id === typeId;
       const row = {
         id: existing?.id || uuid(),
         user_id: this.user.id,
         date,
         type_id: typeId,
-        start_time: existing?.start_time ?? null,
-        end_time: existing?.end_time ?? null,
+        start_time: sameType ? existing?.start_time ?? null : null,
+        end_time: sameType ? existing?.end_time ?? null : null,
         unit: existing?.unit ?? null,
         notes: existing?.notes ?? null,
         reminder_sent_at: null,

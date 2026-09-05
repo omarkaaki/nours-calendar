@@ -6,7 +6,7 @@
 //  downloads quietly in the background for next time.
 // ===========================================================================
 
-const VERSION = "sc-v5";
+const VERSION = "sc-v6";
 const SHELL = [
   "./",
   "./index.html",
@@ -46,7 +46,11 @@ self.addEventListener("fetch", (e) => {
     caches.open(VERSION).then(async (cache) => {
       const cached = await cache.match(req, { ignoreSearch: false });
 
-      const network = fetch(req)
+      // cache:"no-cache" forces a conditional request to the origin. Without it
+      // the browser's own HTTP cache answers this (GitHub Pages sends
+      // max-age=600) and we just re-store the same stale bytes, so a
+      // deployment stays invisible until that expires.
+      const network = fetch(new Request(req.url, { cache: "no-cache", credentials: "same-origin" }))
         .then(async (res) => {
           if (!res || !res.ok || res.type !== "basic") return res;
           // Did this file actually change since the copy we just served?

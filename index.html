@@ -200,6 +200,7 @@ input[type="checkbox"] { width: auto; }
   font-size: 10px; font-weight: 700; line-height: 1.6; border-radius: 5px;
   padding: 0 2px; color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
+.chip-emoji { font-size: 12px; line-height: 1.35; letter-spacing: 0; }
 .dots { display: flex; gap: 2.5px; justify-content: center; margin-top: auto; padding-bottom: 1px; min-height: 6px; }
 .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 
@@ -297,7 +298,27 @@ input[type="checkbox"] { width: auto; }
 .type-btn small { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .type-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); }
 
-.type-editor { display: grid; grid-template-columns: 34px minmax(0,1fr) 78px 78px 30px; gap: 6px; align-items: center; margin-bottom: 7px; }
+.type-editor { display: grid; grid-template-columns: 34px 40px minmax(0,1fr) 72px 72px 26px; gap: 5px; align-items: center; margin-bottom: 7px; }
+.emoji-cell { text-align: center; padding: 7px 2px !important; font-size: 16px !important; }
+
+/* emoji picker in the day sheet */
+.emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.emoji-btn {
+  aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--line-soft);
+  background: var(--surface); font-size: 21px; line-height: 1;
+  display: grid; place-items: center; transition: transform .06s ease;
+}
+.emoji-btn:active { transform: scale(.9); }
+.emoji-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); }
+.emoji-row { display: flex; gap: 6px; margin-top: 8px; }
+.emoji-row input { flex: 1; }
+.emoji-row .btn { flex: none; }
+
+/* the little emoji on a month cell */
+.day-emoji {
+  position: absolute; top: 3px; right: 3px; font-size: 12.5px; line-height: 1;
+  pointer-events: none;
+}
 .type-editor input[type="color"] { padding: 0; height: 34px; width: 34px; border-radius: 8px; border: 1px solid var(--line); background: none; }
 .type-editor input { padding: 7px 8px; font-size: 13.5px; }
 .type-editor .del { color: var(--danger); font-size: 20px; line-height: 1; }

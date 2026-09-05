@@ -164,8 +164,10 @@ Deno.serve(async (req) => {
     const bits = [`Starts ${prettyTime(start)} — ${relative(minsAway)}`];
     if (s.unit) bits.push(s.unit);
 
+    const badge = [type.emoji, s.emoji].filter(Boolean).join("");
     await pushToUser(await subsFor(s.user_id), {
-      title: `${type.name} shift`, body: bits.join(" · "), tag: `shift-${s.id}`, date: s.date,
+      title: `${badge ? badge + " " : ""}${type.name} shift`,
+      body: bits.join(" · "), tag: `shift-${s.id}`, date: s.date,
     });
     await rest(`shifts?id=eq.${s.id}`, { method: "PATCH", body: JSON.stringify({ reminder_sent_at: now.toISOString() }) });
     results.shifts++;

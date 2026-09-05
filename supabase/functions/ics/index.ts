@@ -159,7 +159,10 @@ Deno.serve(async (req) => {
     const t = types.get(s.type_id) ?? { name: s.type_id, start: "", end: "" };
     const start = s.start_time?.slice(0, 5) || t.start || "";
     const end   = s.end_time?.slice(0, 5)   || t.end   || "";
-    const title = s.unit ? `${t.name} — ${s.unit}` : t.name;
+    const base = s.unit ? `${t.name} — ${s.unit}` : t.name;
+    // Emoji ride along into the iPhone Calendar app: the type's first, then
+    // whatever she pinned on that specific day.
+    const title = [t.emoji, s.emoji, base].filter(Boolean).join(" ");
 
     L.push("BEGIN:VEVENT", `UID:shift-${s.id}@shift-calendar`, `DTSTAMP:${stamp}`);
     if (s.updated_at) L.push(`LAST-MODIFIED:${utcStamp(new Date(s.updated_at))}`);

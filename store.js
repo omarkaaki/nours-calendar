@@ -227,6 +227,7 @@ class DataStore extends EventTarget {
       end_time:   patch.end_time   !== undefined ? patch.end_time   || null : existing?.end_time   ?? null,
       unit:       patch.unit       !== undefined ? patch.unit       || null : existing?.unit       ?? null,
       notes:      patch.notes      !== undefined ? patch.notes      || null : existing?.notes      ?? null,
+      emoji:      patch.emoji      !== undefined ? patch.emoji      || null : existing?.emoji      ?? null,
       reminder_sent_at: null,
       updated_at: new Date().toISOString(),
     };
@@ -261,6 +262,7 @@ class DataStore extends EventTarget {
         end_time: sameType ? existing?.end_time ?? null : null,
         unit: existing?.unit ?? null,
         notes: existing?.notes ?? null,
+        emoji: existing?.emoji ?? null,
         reminder_sent_at: null,
         updated_at: new Date().toISOString(),
       };

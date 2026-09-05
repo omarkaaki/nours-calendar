@@ -38,7 +38,7 @@ function hoursBetween(start, end) {
 const shiftStart = (s, t) => s?.start_time || t?.start || "";
 const shiftEnd   = (s, t) => s?.end_time   || t?.end   || "";
 const shiftHours = (s, t) => hoursBetween(shiftStart(s, t), shiftEnd(s, t));
-const shortLabel = (name = "") => (name.length <= 5 ? name : name.slice(0, 4));
+const shortLabel = (name = "", max = 5) => (name.length <= max ? name : name.slice(0, max - 1));
 
 // ------------------------------------------------------------------ state ---
 const state = {
@@ -107,10 +107,17 @@ function renderMonth() {
     cell.appendChild(el("div", "dnum", String(d.getDate())));
 
     const shift = store.getShift(key);
+    if (shift?.emoji) cell.appendChild(el("span", "day-emoji", shift.emoji));
+
     if (shift?.type_id) {
       const t = store.typeById(shift.type_id);
-      const chip = el("div", "chip", shortLabel(t.name));
+      // A cell is only ~46px wide. Squeezing an emoji next to the name leaves
+      // room for about two letters ("🌙Ni"), which reads as broken — so when a
+      // type has an emoji it stands in for the name entirely. The colour, the
+      // agenda and the legend all still carry the full name.
+      const chip = el("div", "chip" + (t.emoji ? " chip-emoji" : ""), t.emoji || shortLabel(t.name));
       chip.style.background = t.color;
+      chip.title = t.name;
       cell.appendChild(chip);
     }
 
@@ -167,7 +174,7 @@ function renderSummary() {
     if (!n) continue;
     const tag = el("span", "tag");
     const sw = el("i", "swatch"); sw.style.background = t.color;
-    tag.append(sw, document.createTextNode(`${t.name} · ${n}`));
+    tag.append(sw, document.createTextNode(`${t.emoji ? t.emoji + " " : ""}${t.name} · ${n}`));
     legend.appendChild(tag);
   }
   box.appendChild(legend);
@@ -187,7 +194,7 @@ function renderAgenda() {
     const key = ymd(d);
     const shift = store.getShift(key);
     const evs = store.eventsOn(key);
-    if (!shift?.type_id && !evs.length && !shift?.notes) continue;
+    if (!shift?.type_id && !evs.length && !shift?.notes && !shift?.emoji) continue;
     any = true;
 
     const group = el("div", "agenda-day");
@@ -198,7 +205,7 @@ function renderAgenda() {
 
     if (shift?.type_id) group.appendChild(shiftRow(key, shift));
     for (const ev of evs) group.appendChild(eventRow(ev));
-    if (!shift?.type_id && shift?.notes) group.appendChild(noteRow(key, shift));
+    if (!shift?.type_id && (shift?.notes || shift?.emoji)) group.appendChild(noteRow(key, shift));
 
     wrap.appendChild(group);
   }
@@ -210,7 +217,7 @@ function shiftRow(key, shift) {
   const row = el("button", "row"); row.type = "button";
   const bar = el("i", "bar"); bar.style.background = t.color;
   const body = el("div", "body");
-  body.appendChild(el("b", null, t.name));
+  body.appendChild(el("b", null, [t.emoji, shift.emoji, t.name].filter(Boolean).join(" ")));
   const bits = [];
   if (shift.unit) bits.push(shift.unit);
   if (shift.notes) bits.push(shift.notes);
@@ -229,8 +236,8 @@ function noteRow(key, shift) {
   const row = el("button", "row"); row.type = "button";
   const bar = el("i", "bar"); bar.style.background = "var(--line)";
   const body = el("div", "body");
-  body.appendChild(el("b", null, "Note"));
-  body.appendChild(el("span", null, shift.notes));
+  body.appendChild(el("b", null, shift.emoji ? `${shift.emoji} Note` : "Note"));
+  if (shift.notes) body.appendChild(el("span", null, shift.notes));
   row.append(bar, body);
   row.addEventListener("click", () => openDay(key));
   return row;
@@ -289,7 +296,7 @@ function renderDayBody() {
     btn.setAttribute("aria-pressed", String(active === t.id));
     const sw = el("i", "sw"); sw.style.background = t.color;
     btn.appendChild(sw);
-    btn.appendChild(document.createTextNode(t.name));
+    btn.appendChild(document.createTextNode(t.emoji ? `${t.emoji} ${t.name}` : t.name));
     if (t.start) btn.appendChild(el("small", null, `${fmtTime(t.start)}–${fmtTime(t.end)}`));
     btn.addEventListener("click", () => {
       if (active === t.id) store.clearShift(key);
@@ -341,6 +348,13 @@ function renderDayBody() {
     body.appendChild(lu);
   }
 
+  // --- emoji for this day ---
+  body.appendChild(el("div", "section-label", "Emoji for this day"));
+  body.appendChild(buildEmojiPicker(shift?.emoji || "", (val) => {
+    store.setShift(key, { emoji: val });
+    refresh();
+  }));
+
   // --- notes ---
   body.appendChild(el("div", "section-label", "Notes for this day"));
   const ta = document.createElement("textarea");
@@ -363,8 +377,64 @@ function renderDayBody() {
   }
 }
 
+// ============================================================== emoji ------
+// A quick-pick grid covers the common cases in one tap; the free field opens
+// the phone's own emoji keyboard for anything else.
+const EMOJI_PICKS = [
+  "🌙","☀️","🌅","💤","😴","☕️",
+  "💉","🩺","🏥","💊","🚑","🩹",
+  "💪","🔥","⭐️","✅","❗️","⚠️",
+  "🎂","🎉","🎁","❤️","🍽️","🛒",
+  "✈️","🏖️","🚗","🏠","📚","🎓",
+];
+
+function buildEmojiPicker(current, onPick) {
+  const wrap = el("div");
+  const grid = el("div", "emoji-grid");
+  let selected = current || "";
+
+  const paint = () => {
+    [...grid.querySelectorAll(".emoji-btn")].forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.emoji === selected && selected !== "")));
+    custom.value = EMOJI_PICKS.includes(selected) ? "" : selected;
+    clear.hidden = !selected;
+  };
+
+  for (const e of EMOJI_PICKS) {
+    const b = el("button", "emoji-btn", e);
+    b.type = "button"; b.dataset.emoji = e;
+    b.setAttribute("aria-label", `Use ${e}`);
+    b.addEventListener("click", () => {
+      selected = selected === e ? "" : e;   // tapping the chosen one clears it
+      paint(); onPick(selected);
+    });
+    grid.appendChild(b);
+  }
+  wrap.appendChild(grid);
+
+  const row = el("div", "emoji-row");
+  const custom = document.createElement("input");
+  custom.type = "text";
+  custom.placeholder = "…or type any emoji";
+  custom.maxLength = 8;
+  custom.autocapitalize = "none";
+  custom.addEventListener("change", () => {
+    selected = [...custom.value.trim()].slice(0, 2).join("");
+    paint(); onPick(selected);
+  });
+
+  const clear = el("button", "btn ghost", "Clear");
+  clear.type = "button";
+  clear.addEventListener("click", () => { selected = ""; paint(); onPick(""); });
+
+  row.append(custom, clear);
+  wrap.appendChild(row);
+  paint();
+  return wrap;
+}
+
 // ========================================================= the event editor
-const EVENT_COLORS = ["#7c3aed","#a855f7","#ec4899","#2563eb","#0d9488","#16a34a","#ea580c","#dc2626"];
+const EVENT_COLORS =["#7c3aed","#a855f7","#ec4899","#2563eb","#0d9488","#16a34a","#ea580c","#dc2626"];
 
 function openEvent(ev) {
   state.editing = ev || null;
@@ -443,7 +513,7 @@ function renderPatternTypes() {
     const b = el("button", "type-btn"); b.type = "button";
     b.setAttribute("aria-pressed", String(state.patternType === t.id));
     const sw = el("i", "sw"); sw.style.background = t.color;
-    b.append(sw, document.createTextNode(t.name));
+    b.append(sw, document.createTextNode(t.emoji ? `${t.emoji} ${t.name}` : t.name));
     b.addEventListener("click", () => { state.patternType = t.id; renderPatternTypes(); updatePatternPreview(); });
     wrap.appendChild(b);
   }
@@ -536,6 +606,12 @@ function renderTypeEditor() {
     const color = document.createElement("input");
     color.type = "color"; color.value = t.color; color.dataset.k = "color";
 
+    const emoji = document.createElement("input");
+    emoji.type = "text"; emoji.value = t.emoji || ""; emoji.dataset.k = "emoji";
+    emoji.placeholder = "🙂"; emoji.maxLength = 4;
+    emoji.className = "emoji-cell";
+    emoji.setAttribute("aria-label", `Emoji for ${t.name}`);
+
     const name = document.createElement("input");
     name.type = "text"; name.value = t.name; name.dataset.k = "name"; name.placeholder = "Name";
 
@@ -553,7 +629,7 @@ function renderTypeEditor() {
       row.remove();
     });
 
-    row.append(color, name, start, end, del);
+    row.append(color, emoji, name, start, end, del);
     list.appendChild(row);
   }
 }
@@ -566,6 +642,7 @@ function collectTypes() {
       id: row.dataset.id,
       name: get("name").trim() || "Shift",
       color: get("color"),
+      emoji: [...get("emoji").trim()].slice(0, 2).join(""),
       start: get("start"),
       end: get("end"),
     };
@@ -779,6 +856,7 @@ function wire() {
     row.dataset.id = uuid().slice(0, 8);
     row.innerHTML =
       '<input type="color" data-k="color" value="#0ea5e9">' +
+      '<input type="text" data-k="emoji" class="emoji-cell" maxlength="4" placeholder="🙂">' +
       '<input type="text" data-k="name" placeholder="Name" value="New shift">' +
       '<input type="time" data-k="start"><input type="time" data-k="end">' +
       '<button type="button" class="del" aria-label="Remove">&times;</button>';
